@@ -1,0 +1,450 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#101923">
+  <meta name="description" content="Tablero diario de actualidad nacional e internacional de Colombia basado en fuentes abiertas.">
+  <title>Informe Diario de Inteligencia y Actualidad Nacional — Colombia</title>
+
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+
+  <style>
+    :root {
+      color-scheme: dark;
+      --fondo: #0b1118;
+      --panel: #121e2a;
+      --borde: #293a4a;
+      --texto: #e6edf3;
+      --suave: #9aabba;
+      --azul: #58a6ff;
+      --cian: #62d5df;
+      --rojo: #ff6b6b;
+      --naranja: #f0883e;
+      --amarillo: #e3b341;
+      --verde: #3fb950;
+      --morado: #bc8cff;
+      font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+    }
+
+    * { box-sizing: border-box; }
+    body { margin: 0; background: var(--fondo); color: var(--texto); line-height: 1.5; }
+    a { color: var(--azul); }
+    button, input, select { font: inherit; }
+    .contenedor { width: min(1400px, calc(100% - 32px)); margin: auto; }
+    header { padding: 22px 0; border-bottom: 1px solid var(--borde); background: #101923; }
+    .marca { color: var(--cian); font-size: 11px; font-weight: 800; letter-spacing: .15em; }
+    h1 { margin: 7px 0; font-size: clamp(24px, 4vw, 38px); line-height: 1.15; }
+    h1 span { display: block; margin-top: 6px; color: #9ab0c2; font-size: .65em; letter-spacing: .2em; }
+    h2 { font-size: 18px; }
+    h3 { font-size: 15px; }
+    .aviso { margin-top: 16px; padding: 11px 14px; border: 1px solid #804747; border-left: 4px solid var(--rojo); border-radius: 6px; background: #301d21; color: #ffb4b4; font-weight: 800; font-size: 12px; }
+    .datos { display: flex; flex-wrap: wrap; gap: 8px 22px; color: var(--suave); font-size: 12px; }
+    .cortes { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin: 20px 0; }
+    .cortes button, .boton { padding: 9px 13px; border: 1px solid #38516a; border-radius: 6px; background: #172737; color: var(--texto); cursor: pointer; text-decoration: none; font-weight: 700; font-size: 12px; }
+    .cortes button[aria-pressed="true"] { border-color: var(--cian); background: #13313b; color: #a8f4f3; }
+    .seccion { margin: 25px 0 32px; scroll-margin-top: 12px; }
+    .subtitulo { margin: 3px 0 12px; color: var(--suave); font-size: 12px; }
+    .indicadores { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+    .indicador, .tarjeta, .panel { padding: 14px; border: 1px solid var(--borde); border-radius: 8px; background: var(--panel); }
+    .indicador { min-height: 82px; }
+    .indicador strong { float: right; font-size: 22px; }
+    .indicador span { display: block; margin-top: 8px; color: #bdc9d5; font-size: 12px; font-weight: 700; }
+    .panel { margin-bottom: 12px; }
+    .filtros { display: grid; grid-template-columns: repeat(4, minmax(140px, 1fr)); gap: 10px; }
+    .filtros label { display: block; margin-bottom: 4px; color: #bdc9d5; font-size: 11px; }
+    .filtros input, .filtros select { width: 100%; padding: 9px; border: 1px solid #38516a; border-radius: 5px; background: #0b1118; color: var(--texto); }
+    .noticias { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+    .tarjeta .tipo { color: var(--cian); font-size: 10px; font-weight: 800; letter-spacing: .1em; }
+    .tarjeta h3 { margin: 6px 0 10px; }
+    .tarjeta p { margin: 6px 0; color: #c2cdd7; font-size: 12px; }
+    .prioridad { display: inline-block; padding: 3px 7px; border: 1px solid #805128; border-radius: 20px; color: #ffbd7b; font-size: 10px; font-weight: 800; }
+    .vacio { padding: 20px; border: 1px dashed #38516a; border-radius: 8px; color: var(--suave); text-align: center; }
+    .vacio strong { display: block; margin-bottom: 4px; color: var(--texto); }
+    .dos-columnas { display: grid; grid-template-columns: 1.5fr 1fr; gap: 12px; }
+    #mapa { height: 430px; border-radius: 8px; background: #15212c; }
+    .leyenda { color: var(--suave); font-size: 11px; }
+    .leyenda span { margin-right: 12px; }
+    .lista { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+    footer { margin-top: 35px; padding: 20px 0; border-top: 1px solid var(--borde); color: var(--suave); font-size: 11px; }
+
+    @media (max-width: 760px) {
+      .contenedor { width: calc(100% - 20px); }
+      .indicadores { grid-template-columns: repeat(2, 1fr); }
+      .filtros, .noticias, .dos-columnas, .lista { grid-template-columns: 1fr; }
+      #mapa { height: 340px; }
+    }
+  </style>
+</head>
+
+<body>
+  <header>
+    <div class="contenedor">
+      <div class="marca">CENTRO DE SITUACIÓN · INFORMACIÓN ABIERTA</div>
+      <h1>INFORME DIARIO DE INTELIGENCIA Y ACTUALIDAD NACIONAL <span>COLOMBIA</span></h1>
+      <div class="aviso">⚠ INFORMACIÓN ABIERTA — VALIDAR ANTES DE UTILIZAR COMO INTELIGENCIA CONFIRMADA</div>
+      <p class="datos">
+        <span>Fecha: <strong id="fecha"></strong></span>
+        <span>Actualización: <strong id="hora-actualizacion"></strong></span>
+        <span>Corte seleccionado: <strong id="corte-actual">17:00</strong></span>
+      </p>
+    </div>
+  </header>
+
+  <main class="contenedor">
+    <nav class="cortes" aria-label="Cortes del informe">
+      <strong>CORTE:</strong>
+      <button data-corte="04:00" aria-pressed="false">04:00</button>
+      <button data-corte="12:00" aria-pressed="false">12:00</button>
+      <button data-corte="17:00" aria-pressed="true">17:00</button>
+      <span id="descripcion-corte" class="subtitulo">Corte principal de cierre del día.</span>
+    </nav>
+
+    <section class="seccion">
+      <h2>INDICADORES DE SITUACIÓN</h2>
+      <p class="subtitulo">Cantidad de novedades cargadas en cada categoría para el corte seleccionado.</p>
+      <div class="indicadores" id="indicadores"></div>
+    </section>
+
+    <section class="seccion">
+      <h2>✈️ FUERZA AEROESPACIAL COLOMBIANA — SEGUIMIENTO EN FUENTES ABIERTAS</h2>
+      <p class="subtitulo">Registrar las menciones con fuente directa y estado de verificación. Una publicación social no confirma por sí sola un hecho.</p>
+      <div id="seguimiento-fac"></div>
+    </section>
+
+    <section class="seccion">
+      <h2>MAPA DE EVENTOS REGISTRADOS</h2>
+      <p class="subtitulo">Mapa real de OpenStreetMap. Solo muestra noticias a las que se hayan añadido coordenadas verificadas.</p>
+      <div class="dos-columnas">
+        <div class="panel">
+          <div id="mapa"></div>
+          <p class="leyenda">
+            🔴 Ataque/incidente · 🟠 Combate · 🟣 Captura · 🟢 Incautación ·
+            🔵 Emergencia · 🟡 Decisión · ⚫ Orden público · ✈️ Actividad FAC
+          </p>
+        </div>
+        <aside class="panel">
+          <h3>Uso del mapa</h3>
+          <p>Los marcadores se generan automáticamente a partir de las coordenadas <code>lat</code> y <code>lng</code> de cada noticia.</p>
+          <p>No añadas ubicaciones sensibles ni datos operacionales privados. Si la fuente no publica coordenadas, deja esos campos vacíos.</p>
+        </aside>
+      </div>
+    </section>
+
+    <section class="seccion">
+      <h2>BUSCADOR Y FILTROS</h2>
+      <div class="panel filtros">
+        <div><label for="buscar">Texto</label><input id="buscar" placeholder="Buscar noticia…"></div>
+        <div><label for="filtro-departamento">Departamento</label><select id="filtro-departamento"><option value="">Todos</option></select></div>
+        <div><label for="filtro-tipo">Tipo de evento</label><select id="filtro-tipo"><option value="">Todos</option></select></div>
+        <div><label for="filtro-prioridad">Prioridad</label>
+          <select id="filtro-prioridad"><option value="">Todas</option><option>CRÍTICA</option><option>ALTA</option><option>MEDIA</option><option>BAJA</option></select>
+        </div>
+        <div><label for="filtro-fuente">Fuente</label>
+          <select id="filtro-fuente"><option value="">Todas</option><option>OFICIAL</option><option>MEDIO DE COMUNICACIÓN</option><option>INTERNACIONAL</option><option>FUENTE ABIERTA</option></select>
+        </div>
+        <div><label for="filtro-verificacion">Verificación</label>
+          <select id="filtro-verificacion"><option value="">Todas</option><option>CONFIRMADO</option><option>CORROBORADO POR MÁS DE UNA FUENTE</option><option>FUENTE ABIERTA PENDIENTE DE CORROBORACIÓN</option><option>EN DESARROLLO</option><option>INFORMACIÓN CONTRADICTORIA</option><option>NO CONFIRMADO</option></select>
+        </div>
+        <div><label for="filtro-fecha">Fecha</label><input id="filtro-fecha" type="date"></div>
+        <div><label>&nbsp;</label><button class="boton" id="limpiar">Limpiar filtros</button></div>
+      </div>
+    </section>
+
+    <section class="seccion">
+      <h2>NOVEDADES DEL CORTE</h2>
+      <p class="subtitulo" id="cantidad-noticias"></p>
+      <div id="lista-noticias"></div>
+    </section>
+
+    <section class="seccion">
+      <h2>🔴 NOTICIA CRÍTICA EN DESARROLLO</h2>
+      <div id="noticias-criticas"></div>
+    </section>
+
+    <section class="seccion">
+      <h2>🏛️ COMUNICACIONES DEL PRESIDENTE DE LA REPÚBLICA</h2>
+      <div id="presidencia"></div>
+      <h2>🎯 IMPACTO POTENCIAL EN LAS FUERZAS MILITARES</h2>
+      <div class="lista">
+        <article class="panel"><h3>Ejército Nacional</h3><p>Sin anuncio verificado cargado. No se infieren órdenes operacionales.</p></article>
+        <article class="panel"><h3>Armada Nacional</h3><p>Sin anuncio verificado cargado. No se infieren órdenes operacionales.</p></article>
+        <article class="panel"><h3>Fuerza Aeroespacial</h3><p>Sin anuncio verificado cargado. No se infieren órdenes operacionales.</p></article>
+        <article class="panel"><h3>Policía e inteligencia</h3><p>Sin anuncio verificado cargado. No se infieren órdenes operacionales.</p></article>
+      </div>
+      <h2>🎯 RECOMENDACIÓN PARA FUERZAS MILITARES E INTELIGENCIA</h2>
+      <div class="lista">
+        <article class="panel"><h3>FUERZAS MILITARES</h3><p>Registrar solo tareas y decisiones que aparezcan en fuentes públicas verificables.</p></article>
+        <article class="panel"><h3>INTELIGENCIA</h3><p>Documentar requerimientos, indicadores y vacíos de información sin presentar hipótesis como hechos.</p></article>
+        <article class="panel"><h3>FUERZA AEROESPACIAL</h3><p>Registrar únicamente información pública verificada sobre vigilancia, movilidad, evacuación o apoyo.</p></article>
+      </div>
+    </section>
+
+    <section class="seccion">
+      <h2>🌎 SITUACIÓN INTERNACIONAL</h2>
+      <div id="internacional"></div>
+      <h2>🇨🇴 POSIBLES EFECTOS PARA COLOMBIA</h2>
+      <p class="subtitulo">Analizar seguridad, defensa, economía, energía, comercio, migración, diplomacia y fronteras cuando haya fuentes que lo sustenten.</p>
+    </section>
+
+    <section class="seccion">
+      <h2>💰 SITUACIÓN ECONÓMICA</h2>
+      <p class="subtitulo">Seguir dólar, petróleo, inflación, combustibles, presupuesto, deuda, empleo, comercio e inversión cuando haya datos y fuentes verificables.</p>
+      <div class="panel">No hay información económica cargada para este corte.</div>
+    </section>
+
+    <section class="seccion">
+      <h2>🎖️ IMPLICACIONES PARA ESTADO MAYOR</h2>
+      <div class="lista">
+        <article class="panel"><h3>INTELIGENCIA — ¿Qué cambió hoy?</h3><p>Información no disponible en la fuente consultada.</p></article>
+        <article class="panel"><h3>OPERACIONES — Próximas 24–72 horas</h3><p>Información no disponible en la fuente consultada.</p></article>
+        <article class="panel"><h3>LOGÍSTICA — ¿Qué requiere seguimiento?</h3><p>Información no disponible en la fuente consultada.</p></article>
+        <article class="panel"><h3>PROTECCIÓN — ¿Qué requiere decisión?</h3><p>Información no disponible en la fuente consultada.</p></article>
+        <article class="panel"><h3>INFORMACIÓN — ¿Qué falta confirmar?</h3><p>Información no disponible en la fuente consultada.</p></article>
+        <article class="panel"><h3>COOPERACIÓN — Indicadores de alerta</h3><p>Información no disponible en la fuente consultada.</p></article>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <div class="contenedor">Tablero de información abierta. Verifica cada noticia en su fuente original antes de compartirla o utilizarla.</div>
+  </footer>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script>
+    /*
+      Añade aquí hechos públicos verificables.
+      No inventes URLs, cifras, horas ni ubicaciones.
+      Para noticias sin hora usa: hora: "Hora no indicada por la fuente".
+    */
+    const noticias = [
+      /*
+      Ejemplo de estructura — reemplaza los valores por información real:
+      {
+        id: 1,
+        corte: "17:00",
+        fecha: "2026-01-30",
+        hora: "Hora no indicada por la fuente",
+        titulo: "Título basado en una fuente consultada",
+        categoria: "ORDEN PÚBLICO",
+        sector: "SEGURIDAD",
+        prioridad: "MEDIA",
+        departamento: "Departamento",
+        municipio: "Municipio",
+        lat: null,
+        lng: null,
+        quien: "Actor mencionado por la fuente",
+        porQue: "Contexto publicado por la fuente",
+        cuanto: "Información no disponible en la fuente consultada.",
+        resumen: "Resumen fiel a la fuente.",
+        analisis: "Análisis separado de los hechos.",
+        implicaciones: "Posibles implicaciones, identificadas como análisis.",
+        fuente: "Nombre de la fuente",
+        fuenteUrl: "https://URL-REAL-DE-LA-FUENTE",
+        tipoFuente: "OFICIAL",
+        verificacion: "CONFIRMADO"
+      }
+      */
+    ];
+
+    const seguimientoFAC = [];
+    const comunicacionesPresidencia = [];
+
+    let corteSeleccionado = "17:00";
+    let mapa = null;
+    let capaMarcadores = null;
+
+    const $ = (selector) => document.querySelector(selector);
+    const sinDato = "Información no disponible en la fuente consultada.";
+
+    function escapar(valor) {
+      return String(valor ?? "").replace(/[&<>"']/g, caracter => ({
+        "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
+      }[caracter]));
+    }
+
+    function urlFuente(noticia) {
+      try {
+        const url = new URL(noticia.fuenteUrl);
+        if (!["http:", "https:"].includes(url.protocol)) return "";
+        return `<a class="boton" href="${escapar(url.href)}" target="_blank" rel="noopener noreferrer">Fuente original ↗</a>`;
+      } catch {
+        return "";
+      }
+    }
+
+    function noticiasDelCorte() {
+      const texto = $("#buscar").value.trim().toLocaleLowerCase("es");
+      return noticias.filter(n => {
+        const coincideCorte = !n.corte || n.corte === corteSeleccionado;
+        const coincideTexto = !texto || Object.values(n).join(" ").toLocaleLowerCase("es").includes(texto);
+        const coincideDepartamento = !$("#filtro-departamento").value || n.departamento === $("#filtro-departamento").value;
+        const coincideTipo = !$("#filtro-tipo").value || n.categoria === $("#filtro-tipo").value;
+        const coincidePrioridad = !$("#filtro-prioridad").value || n.prioridad === $("#filtro-prioridad").value;
+        const coincideFuente = !$("#filtro-fuente").value || n.tipoFuente === $("#filtro-fuente").value;
+        const coincideVerificacion = !$("#filtro-verificacion").value || n.verificacion === $("#filtro-verificacion").value;
+        const coincideFecha = !$("#filtro-fecha").value || n.fecha === $("#filtro-fecha").value;
+        return coincideCorte && coincideTexto && coincideDepartamento && coincideTipo &&
+          coincidePrioridad && coincideFuente && coincideVerificacion && coincideFecha;
+      });
+    }
+
+    function llenarFiltro(selector, valores) {
+      const select = $(selector);
+      const anterior = select.value;
+      select.innerHTML = `<option value="">${selector.includes("departamento") ? "Todos" : "Todos"}</option>`;
+      [...new Set(valores.filter(Boolean))].sort().forEach(valor => {
+        const opcion = document.createElement("option");
+        opcion.value = valor;
+        opcion.textContent = valor;
+        select.appendChild(opcion);
+      });
+      select.value = anterior;
+    }
+
+    function tarjeta(n) {
+      const hora = n.hora || "Hora no indicada por la fuente";
+      const municipio = [n.municipio, n.departamento].filter(Boolean).join(", ") || sinDato;
+      const mapas = Number.isFinite(Number(n.lat)) && Number.isFinite(Number(n.lng))
+        ? `<a class="boton" target="_blank" rel="noopener noreferrer" href="https://www.google.com/maps/search/?api=1&amp;query=${n.lat},${n.lng}">Google Maps</a>
+           <a class="boton" target="_blank" rel="noopener noreferrer" href="https://earth.google.com/web/search/${n.lat},${n.lng}">Google Earth</a>`
+        : "";
+
+      return `<article class="tarjeta">
+        <div class="tipo">${escapar(n.categoria || "TIPO NO INDICADO")}</div>
+        <h3>${escapar(n.titulo || "Título no disponible")}</h3>
+        <span class="prioridad">${escapar(n.prioridad || "MEDIA")}</span>
+        <p>📅 <b>Cuándo:</b> ${escapar(n.fecha || sinDato)} · ${escapar(hora)}</p>
+        <p>📍 <b>Dónde:</b> ${escapar(municipio)}</p>
+        <p>👤 <b>Quién:</b> ${escapar(n.quien || sinDato)}</p>
+        <p>❓ <b>Por qué:</b> ${escapar(n.porQue || sinDato)}</p>
+        <p>💰 <b>Cuánto:</b> ${escapar(n.cuanto || sinDato)}</p>
+        <p><b>Resumen:</b> ${escapar(n.resumen || sinDato)}</p>
+        <p><b>Análisis:</b> ${escapar(n.analisis || sinDato)}</p>
+        <p><b>Implicaciones:</b> ${escapar(n.implicaciones || sinDato)}</p>
+        <p><b>Fuente:</b> ${escapar(n.fuente || sinDato)} · ${escapar(n.tipoFuente || "FUENTE ABIERTA")}</p>
+        <p><b>Verificación:</b> ${escapar(n.verificacion || "NO CONFIRMADO")}</p>
+        <p>${urlFuente(n)} ${mapas}</p>
+      </article>`;
+    }
+
+    function actualizarMapa(registros) {
+      if (!mapa || !capaMarcadores) return;
+      capaMarcadores.clearLayers();
+
+      registros.forEach(n => {
+        if (!Number.isFinite(Number(n.lat)) || !Number.isFinite(Number(n.lng))) return;
+
+        const marcador = L.marker([Number(n.lat), Number(n.lng)]).addTo(capaMarcadores);
+        marcador.bindPopup(
+          `<b>${escapar(n.titulo)}</b><br>${escapar(n.municipio || "")}, ${escapar(n.departamento || "")}<br>` +
+          `Fecha: ${escapar(n.fecha || sinDato)}<br>Hora: ${escapar(n.hora || "Hora no indicada por la fuente")}<br>` +
+          `Tipo: ${escapar(n.categoria || sinDato)}<br>${escapar(n.verificacion || "NO CONFIRMADO")}<br>${urlFuente(n)}`
+        );
+      });
+    }
+
+    function actualizar() {
+      const registros = noticiasDelCorte();
+
+      $("#cantidad-noticias").textContent = `${registros.length} novedades`;
+      $("#lista-noticias").innerHTML = registros.length
+        ? `<div class="noticias">${registros.map(tarjeta).join("")}</div>`
+        : `<div class="vacio"><strong>No hay noticias cargadas para este corte.</strong>
+           Añade información pública verificable al arreglo <code>noticias</code> dentro de index.html.</div>`;
+
+      const criticas = registros.filter(n => n.critica === true);
+      $("#noticias-criticas").innerHTML = criticas.length
+        ? `<div class="noticias">${criticas.map(tarjeta).join("")}</div>`
+        : `<div class="vacio">No hay noticias críticas en desarrollo cargadas.</div>`;
+
+      $("#indicadores").innerHTML = [
+        ["🔴", "Seguridad", "SEGURIDAD"],
+        ["🟠", "Orden público", "ORDEN PÚBLICO"],
+        ["🔵", "Gobierno", "GOBIERNO"],
+        ["🟢", "Economía", "ECONOMÍA"],
+        ["🟣", "Internacional", "INTERNACIONAL"],
+        ["✈️", "Fuerza Aeroespacial", "FAC"],
+        ["⚠️", "Emergencias", "EMERGENCIA"],
+        ["🎯", "Prioridades", "PRIORIDAD"]
+      ].map(([icono, etiqueta, clave]) => {
+        const total = registros.filter(n =>
+          String(n.sector || "").toUpperCase() === clave ||
+          String(n.categoria || "").toUpperCase().includes(clave)
+        ).length;
+        return `<article class="indicador">${icono}<strong>${total}</strong><span>${etiqueta}</span></article>`;
+      }).join("");
+
+      actualizarMapa(registros);
+
+      const fac = seguimientoFAC.filter(n => !n.corte || n.corte === corteSeleccionado);
+      $("#seguimiento-fac").innerHTML = fac.length
+        ? `<div class="noticias">${fac.map(tarjeta).join("")}</div>`
+        : `<div class="vacio">No hay menciones FAC cargadas para este corte. Añade la fuente y el estado de verificación.</div>`;
+
+      const presidencia = comunicacionesPresidencia.filter(n => !n.corte || n.corte === corteSeleccionado);
+      $("#presidencia").innerHTML = presidencia.length
+        ? `<div class="noticias">${presidencia.map(tarjeta).join("")}</div>`
+        : `<div class="vacio">No hay comunicaciones presidenciales verificadas cargadas para este corte.</div>`;
+
+      const internacionales = registros.filter(n => n.sector === "INTERNACIONAL");
+      $("#internacional").innerHTML = internacionales.length
+        ? `<div class="noticias">${internacionales.map(tarjeta).join("")}</div>`
+        : `<div class="vacio">No hay novedades internacionales cargadas para este corte.</div>`;
+    }
+
+    document.addEventListener("DOMContentLoaded", () => {
+      const ahora = new Date();
+      $("#fecha").textContent = new Intl.DateTimeFormat("es-CO", {
+        timeZone: "America/Bogota", dateStyle: "long"
+      }).format(ahora);
+      $("#hora-actualizacion").textContent = new Intl.DateTimeFormat("es-CO", {
+        timeZone: "America/Bogota", hour: "2-digit", minute: "2-digit", hour12: false
+      }).format(ahora) + " COT";
+
+      llenarFiltro("#filtro-departamento", noticias.map(n => n.departamento));
+      llenarFiltro("#filtro-tipo", noticias.map(n => n.categoria));
+
+      if (window.L) {
+        mapa = L.map("mapa").setView([4.3, -73.5], 5);
+        L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
+          maxZoom: 19,
+          attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+        }).addTo(mapa);
+        capaMarcadores = L.layerGroup().addTo(mapa);
+      } else {
+        $("#mapa").textContent = "No se pudo cargar el mapa. Comprueba tu conexión a internet.";
+      }
+
+      document.querySelectorAll("[data-corte]").forEach(boton => {
+        boton.addEventListener("click", () => {
+          corteSeleccionado = boton.dataset.corte;
+          document.querySelectorAll("[data-corte]").forEach(b =>
+            b.setAttribute("aria-pressed", String(b === boton))
+          );
+          $("#corte-actual").textContent = corteSeleccionado;
+          $("#descripcion-corte").textContent = {
+            "04:00": "Situación acumulada de las últimas horas y hechos relevantes de la madrugada.",
+            "12:00": "Actualización de la situación nacional hasta el mediodía.",
+            "17:00": "Corte principal de cierre del día y proyección de las próximas 24–72 horas."
+          }[corteSeleccionado];
+          actualizar();
+        });
+      });
+
+      ["#buscar", "#filtro-departamento", "#filtro-tipo", "#filtro-prioridad",
+       "#filtro-fuente", "#filtro-verificacion", "#filtro-fecha"].forEach(selector => {
+        $(selector).addEventListener("input", actualizar);
+        $(selector).addEventListener("change", actualizar);
+      });
+
+      $("#limpiar").addEventListener("click", () => {
+        document.querySelectorAll(".filtros input, .filtros select").forEach(campo => campo.value = "");
+        actualizar();
+      });
+
+      actualizar();
+    });
+  </script>
+</body>
+</html>
